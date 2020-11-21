@@ -1,0 +1,53 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Simple Sinatra App
+
+Parameters:
+  pVPC:
+    Type: AWS::EC2::VPC::Id
+    Description: The VPC that should be used to deploy resources
+  pVPCSubnets:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: The VPC subnets you would like to deploy resources into (minimum two in two different AZs)
+Outputs:
+  ALBEndpoint:
+    Description: The ALB endpoint the service can be found at
+    Value: !GetAtt LoadBalancer.DNSName
+
+Resources:
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Subnets: !Ref pVPCSubnets
+      SecurityGroups:
+        - !Ref LoadBalancerSecurityGroup
+
+  LoadBalancerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Access to ALB from public IP addresses"
+      VpcId: !Ref pVPC
+      SecurityGroupIngress:
+        - CidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+
+  LoadBalancerListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+      Port: 80
+      Protocol: HTTP
+      LoadBalancerArn: !Ref LoadBalancer
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Port: 9292
+      Protocol: HTTP
+      VpcId: !Ref pVPC
+      TargetType: "ip"
+
