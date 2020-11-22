@@ -6,5 +6,9 @@
   {
     "ParameterKey": "pVPCSubnets",
     "ParameterValue": "subnet-300b2e6c,subnet-3c220512,subnet-54e9856a,subnet-611e4606,subnet-84eb03c9,subnet-a8283aa7"
+  },
+  {
+    "ParameterKey": "pDockerImage",
+    "ParameterValue": "docker.io/alastairpaterson/simple-sinatra-app"
   }
 ]

@@ -9,6 +9,10 @@ Parameters:
   pVPCSubnets:
     Type: List<AWS::EC2::Subnet::Id>
     Description: The VPC subnets you would like to deploy resources into (minimum two in two different AZs)
+  pDockerImage:
+    Type: String
+    Description: The Docker image that should be deployed
+
 Outputs:
   ALBEndpoint:
     Description: The ALB endpoint the service can be found at
@@ -51,3 +55,71 @@ Resources:
       VpcId: !Ref pVPC
       TargetType: "ip"
 
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+
+  ECSExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2008-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+               - ecs.amazonaws.com
+               - ecs-tasks.amazonaws.com
+            Action: "sts:AssumeRole"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+
+  ECSTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      ExecutionRoleArn: !Ref ECSExecutionRole
+      ContainerDefinitions:
+        - Image: !Ref pDockerImage
+          Name: "Simple-Sinatra-App"
+          PortMappings:
+            - Protocol: "tcp"
+              HostPort: 9292
+              ContainerPort: 9292
+      Cpu: "256"
+      Memory: "512"
+      NetworkMode: "awsvpc"
+      RequiresCompatibilities:
+        - "FARGATE"
+
+  ECSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Access to ECS cluster from private IP addresses"
+      VpcId: !Ref pVPC
+      SecurityGroupIngress:
+        - CidrIp: 172.31.0.0/16
+          IpProtocol: tcp
+          FromPort: 9292
+          ToPort: 9292
+
+  ECSService:
+    Type: AWS::ECS::Service
+    DependsOn:
+      - LoadBalancerListener
+      - LoadBalancer
+    Properties:
+      Cluster: !Ref ECSCluster
+      DesiredCount: 1
+      LaunchType: "FARGATE"
+      TaskDefinition: !Ref ECSTaskDefinition
+      LoadBalancers:
+        - TargetGroupArn: !Ref TargetGroup
+          ContainerPort: 9292
+          ContainerName: "Simple-Sinatra-App"
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          Subnets:
+            !Ref pVPCSubnets
+          SecurityGroups:
+            - !Ref ECSSecurityGroup
+      SchedulingStrategy: "REPLICA"
