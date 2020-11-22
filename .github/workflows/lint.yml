@@ -1,6 +1,10 @@
 name: Lint CloudFormation Templates
 
-on: [push]
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
 
 jobs:
   cloudformation-linter:
